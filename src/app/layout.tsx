@@ -1,9 +1,8 @@
 import './globals.css'
-import {Inter} from 'next/font/google'
 import {Navigation} from '@/components/Navigation'
 import React from "react";
-
-const inter = Inter({subsets: ['latin']})
+import {Providers} from "@/app/providers";
+import {ToastProvider, ToastViewport} from "@/components/ui/toast";
 
 export default function RootLayout({
                                        children,
@@ -12,9 +11,14 @@ export default function RootLayout({
 }) {
     return (
         <html lang="en">
-        <body className={inter.className}>
-        <Navigation/>
-        {children}
+        <body>
+        <ToastProvider>
+            <Providers>
+                <Navigation/>
+                {children}
+            </Providers>
+            <ToastViewport/>
+        </ToastProvider>
         </body>
         </html>
     )
