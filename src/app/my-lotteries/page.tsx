@@ -3,10 +3,10 @@
 import {useEffect, useState} from 'react';
 import {useAccount} from 'wagmi';
 import {getUserLotteries} from '@/api/lotteryApi';
-import {LotteryCard} from '@/components/LotteryCard';
+import {Card} from "@/components/ui/card";
 import {Lottery} from '@/types/types';
 
-export default function MyLotteriesPage() {
+export default function MyLotteries() {
     const {address, isConnected} = useAccount();
     const [lotteries, setLotteries] = useState<Lottery[]>([]);
     const [loading, setLoading] = useState(true);
@@ -20,6 +20,7 @@ export default function MyLotteriesPage() {
                 setLotteries(data);
             } catch (error) {
                 console.error('Error fetching user lotteries:', error);
+                setLotteries([]);
             }
             setLoading(false);
         };
@@ -36,14 +37,18 @@ export default function MyLotteriesPage() {
     }
 
     return (
-        <div className="container mx-auto px-4 py-8">
-            <h1 className="text-3xl font-bold mb-8">My Lotteries</h1>
+        <div className="w-full max-w-4xl mx-auto p-4">
+            <h1 className="text-3xl font-bold mb-6">My Lotteries</h1>
+
             {loading ? (
-                <div>Loading...</div>
+                <div className="flex justify-center items-center min-h-[200px]">
+                    <div className="text-lg text-muted-foreground">Loading...</div>
+                </div>
             ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                     {lotteries.map((lottery) => (
-                        <LotteryCard key={lottery.id} lottery={lottery}/>
+                        <Card key={lottery.id} className="hover:shadow-lg transition-shadow">
+                        </Card>
                     ))}
                 </div>
             )}

@@ -1,7 +1,7 @@
 export interface Lottery {
     id: string;
     description: string;
-    ticketPrice: number;
+    ticketPrice: bigint;
     winnerAddress: string;
     endDate: Date;
 }
