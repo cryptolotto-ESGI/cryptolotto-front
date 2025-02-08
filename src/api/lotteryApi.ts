@@ -2,11 +2,9 @@ import {Lottery, Ticket} from "@/types/types";
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000';
 
-export const getLotteries = async (active?: boolean): Promise<Lottery[]> => {
-    const url = active !== undefined
-        ? `${API_BASE_URL}/lotteries/active?active=${active}`
-        : `${API_BASE_URL}/lotteries`;
-    const response = await fetch(url);
+export const getLotteries = async (queryString?: string) => {
+    const response = await fetch(`${API_BASE_URL}/lotteries/description${queryString ? `?${queryString}` : ''}`);
+    if (!response.ok) throw new Error('Failed to fetch lotteries');
     return response.json();
 };
 
