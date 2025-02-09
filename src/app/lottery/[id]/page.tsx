@@ -6,6 +6,7 @@ import {useAccount} from 'wagmi';
 import {getLotteryById} from '@/api/lotteryApi';
 import {Lottery} from '@/types/types';
 import {BuyTicketButton} from '@/components/BuyTicketButton';
+import {LaunchLotteryButton} from '@/components/LaunchLotteryButton';
 import {useToast} from "@/components/ui/toast";
 import {formatEther} from "viem";
 
@@ -17,6 +18,13 @@ export default function LotteryPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState<string | null>(null);
     const {showToast} = useToast();
+
+    const canLaunchLottery = lottery &&
+        !lottery.winnerAddress &&
+        isConnected &&
+        lottery.owner === address &&
+        new Date(lottery.endDate) <= new Date() &&
+        totalTickets > 0;
 
     useEffect(() => {
         const fetchLottery = async () => {
@@ -97,12 +105,18 @@ export default function LotteryPage() {
                     </p>
 
                     {!lottery.winnerAddress && isConnected && (
-                        <div className="mt-6">
+                        <div className="mt-6 space-y-4">
                             <BuyTicketButton
                                 lotteryId={lottery.id}
                                 ticketPrice={Number(lottery.ticketPrice)}
                                 userAddress={address!}
                             />
+
+                            {canLaunchLottery && (
+                                <LaunchLotteryButton
+                                    lotteryId={lottery.id}
+                                />
+                            )}
                         </div>
                     )}
                 </div>

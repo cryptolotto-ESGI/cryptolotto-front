@@ -2,6 +2,7 @@ export interface Lottery {
     id: string;
     description: string;
     ticketPrice: bigint;
+    owner: string;
     winnerAddress: string;
     endDate: Date;
 }
