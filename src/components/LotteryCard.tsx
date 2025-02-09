@@ -8,6 +8,8 @@ interface LotteryCardProps {
 }
 
 export function LotteryCard({lottery}: LotteryCardProps) {
+    const isEnded = new Date(lottery.endDate) <= new Date();
+
     return (
         <Link href={`/lottery/${lottery.id}`} passHref>
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
@@ -32,16 +34,18 @@ export function LotteryCard({lottery}: LotteryCardProps) {
                 </CardContent>
                 <CardFooter>
                     <div className="w-full flex justify-end">
-                        {!lottery.winnerAddress ? (
-                            <span
-                                className="text-sm px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
-                                Active
-                            </span>
+                        {lottery.winnerAddress ? (
+                            <span className="text-sm px-2 py-1 rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100">
+                        Inactive
+                    </span>
+                        ) : isEnded ? (
+                            <span className="text-sm px-2 py-1 rounded-full bg-yellow-100 text-yellow-800 dark:bg-yellow-900 dark:text-yellow-100">
+                        Ended
+                    </span>
                         ) : (
-                            <span
-                                className="text-sm px-2 py-1 rounded-full bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-100">
-                                Inactive
-                            </span>
+                            <span className="text-sm px-2 py-1 rounded-full bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-100">
+                        Active
+                    </span>
                         )}
                     </div>
                 </CardFooter>

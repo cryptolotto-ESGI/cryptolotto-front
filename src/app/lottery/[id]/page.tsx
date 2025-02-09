@@ -19,6 +19,12 @@ export default function LotteryPage() {
     const [error, setError] = useState<string | null>(null);
     const {showToast} = useToast();
 
+    const isEnded = lottery ? new Date(lottery.endDate) <= new Date() : false;
+    const canBuyTicket = lottery &&
+        !lottery.winnerAddress &&
+        isConnected &&
+        !isEnded;
+
     const canLaunchLottery = lottery &&
         !lottery.winnerAddress &&
         isConnected &&
@@ -106,11 +112,13 @@ export default function LotteryPage() {
 
                     {!lottery.winnerAddress && isConnected && (
                         <div className="mt-6 space-y-4">
-                            <BuyTicketButton
-                                lotteryId={lottery.id}
-                                ticketPrice={Number(lottery.ticketPrice)}
-                                userAddress={address!}
-                            />
+                            {canBuyTicket && (
+                                <BuyTicketButton
+                                    lotteryId={lottery.id}
+                                    ticketPrice={Number(lottery.ticketPrice)}
+                                    userAddress={address!}
+                                />
+                            )}
 
                             {canLaunchLottery && (
                                 <LaunchLotteryButton
