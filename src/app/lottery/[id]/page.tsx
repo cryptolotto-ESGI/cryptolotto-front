@@ -6,53 +6,104 @@ import {useAccount} from 'wagmi';
 import {getLotteryById} from '@/api/lotteryApi';
 import {Lottery} from '@/types/types';
 import {BuyTicketButton} from '@/components/BuyTicketButton';
+import {useToast} from "@/components/ui/toast";
 import {formatEther} from "viem";
 
 export default function LotteryPage() {
     const {id} = useParams();
     const {address, isConnected} = useAccount();
     const [lottery, setLottery] = useState<Lottery | null>(null);
+    const [totalTickets, setTotalTickets] = useState<number>(0);
     const [loading, setLoading] = useState(true);
+    const [error, setError] = useState<string | null>(null);
+    const {showToast} = useToast();
 
     useEffect(() => {
         const fetchLottery = async () => {
+            if (!id) return;
+
+            setLoading(true);
+            setError(null);
+
             try {
-                const data = await getLotteryById(id as string);
-                setLottery(data);
+                const lotteryId = Array.isArray(id) ? id[0] : id;
+                const response = await getLotteryById(lotteryId);
+                setLottery(response.lottery);
+                setTotalTickets(response.totalTickets);
             } catch (error) {
                 console.error('Error fetching lottery:', error);
+                setError('Failed to load lottery information');
+                showToast({
+                    title: "Error",
+                    description: "Failed to load lottery information. Please try again.",
+                    duration: 5000,
+                });
+            } finally {
+                setLoading(false);
             }
-            setLoading(false);
         };
 
-        fetchLottery();
+        fetchLottery().then();
     }, [id]);
 
-    if (loading) return <div>Loading...</div>;
-    if (!lottery) return <div>Lottery not found</div>;
+    if (loading) {
+        return (
+            <div className="container mx-auto px-4 py-8 flex justify-center items-center">
+                <div className="text-lg">Loading lottery information...</div>
+            </div>
+        );
+    }
+
+    if (error || !lottery) {
+        return (
+            <div className="container mx-auto px-4 py-8">
+                <div className="text-center text-red-500">
+                    {error || 'Lottery not found'}
+                </div>
+            </div>
+        );
+    }
 
     return (
         <div className="container mx-auto px-4 py-8">
-            {lottery.winnerAddress ? (
+            {lottery.winnerAddress && (
                 <div className="text-center mb-8">
                     <h2 className="text-2xl font-bold text-green-500">
-                        Congratulations to {lottery.winnerAddress}!
+                        Winner: {lottery.winnerAddress}
                     </h2>
                 </div>
-            ) : null}
+            )}
 
             <div className="max-w-2xl mx-auto bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
-                <h1 className="text-3xl font-bold mb-4">{lottery.description}</h1>
+                <h1 className="text-3xl font-bold mb-6">{lottery.description}</h1>
                 <div className="space-y-4">
-                    <p>Price: {formatEther(BigInt(lottery.ticketPrice))} ETH</p>
-                    <p>End Date: {new Date(lottery.endDate).toLocaleDateString()}</p>
+                    <p className="flex justify-between">
+                        <span className="font-medium">Price:</span>
+                        <span>{formatEther(BigInt(lottery.ticketPrice))} ETH</span>
+                    </p>
+                    <p className="flex justify-between">
+                        <span className="font-medium">End Date:</span>
+                        <span>{new Date(lottery.endDate).toLocaleDateString()}</span>
+                    </p>
+                    <p className="flex justify-between">
+                        <span className="font-medium">Status:</span>
+                        <span className={lottery.winnerAddress ? "text-red-500" : "text-green-500"}>
+                            {lottery.winnerAddress ? "Ended" : "Active"}
+                        </span>
+                    </p>
+                    <p className="flex justify-between">
+                        <span className="font-medium">Tickets purchased:</span>
+                        <span>{totalTickets}</span>
+                    </p>
 
                     {!lottery.winnerAddress && isConnected && (
-                        <BuyTicketButton
-                            lotteryId={lottery.id}
-                            ticketPrice={lottery.ticketPrice}
-                            userAddress={address!}
-                        />
+                        <div className="mt-6">
+                            <BuyTicketButton
+                                lotteryId={lottery.id}
+                                ticketPrice={Number(lottery.ticketPrice)}
+                                userAddress={address!}
+                            />
+                        </div>
                     )}
                 </div>
             </div>

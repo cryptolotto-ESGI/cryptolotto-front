@@ -1,74 +1,103 @@
 'use client';
 
-import {useState} from 'react';
-import {useSimulateContract, useWatchContractEvent, useWriteContract} from 'wagmi';
-import {parseEther} from 'viem';
-import {createTicket} from '@/api/lotteryApi';
+import {useEffect, useState} from 'react';
+import {useWaitForTransactionReceipt, useWriteContract} from 'wagmi';
+import {useToast} from '@/components/ui/toast';
+import {formatEther} from 'viem';
 
-// This is a placeholder - you'll need to replace it with your actual contract ABI and address
-const LOTTERY_CONTRACT_ABI = ["/* ... */"];
-const LOTTERY_CONTRACT_ADDRESS = '0x...';
+const LOTTERY_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS as `0x${string}` || "0x0000000000000000000000000000000000000000";
+
+const LOTTERY_ABI = [
+    {
+        inputs: [
+            {name: "lotteryId", type: "string"}
+        ],
+        name: "buyTicket",
+        outputs: [],
+        stateMutability: "payable",
+        type: "function"
+    }
+] as const;
+
+interface BuyTicketButtonProps {
+    lotteryId: string;
+    ticketPrice: number;
+    userAddress: string;
+}
 
 export const BuyTicketButton = ({
                                     lotteryId,
                                     ticketPrice,
                                     userAddress
-                                }: {
-    lotteryId: string;
-    ticketPrice: number;
-    userAddress: string;
-}) => {
+                                }: BuyTicketButtonProps) => {
+    const {showToast} = useToast();
     const [isProcessing, setIsProcessing] = useState(false);
 
-    const {writeContract, isPending, isSuccess} = useWriteContract();
+    const {writeContract, data: hash, error: writeError, isPending} = useWriteContract();
 
-    // Simulate the contract call to check for potential errors
-    const {data: simulateData} = useSimulateContract({
-        address: LOTTERY_CONTRACT_ADDRESS,
-        abi: LOTTERY_CONTRACT_ABI,
-        functionName: 'buyTicket',
-        args: [lotteryId],
-        value: parseEther(ticketPrice.toString()),
+    const {isLoading: isConfirming, isSuccess} = useWaitForTransactionReceipt({
+        hash,
     });
 
-    // Watch for successful transaction
-    useWatchContractEvent({
-        address: LOTTERY_CONTRACT_ADDRESS,
-        abi: LOTTERY_CONTRACT_ABI,
-        eventName: 'TicketPurchased',
-        onLogs: async () => {
-            try {
-                await createTicket(lotteryId, userAddress);
-            } catch (error) {
-                console.error('Error creating ticket:', error);
-            }
+    useEffect(() => {
+        if (isSuccess) {
+            showToast({
+                title: "Success!",
+                description: "You have successfully bought a ticket!",
+                duration: 5000,
+            });
             setIsProcessing(false);
-        },
-    });
+        }
+    }, [isSuccess, showToast]);
+
+    useEffect(() => {
+        if (writeError) {
+            showToast({
+                title: "Error",
+                description: writeError.message,
+                duration: 5000,
+            });
+            setIsProcessing(false);
+        }
+    }, [writeError, showToast]);
 
     const handleBuyTicket = async () => {
-        setIsProcessing(true);
         try {
-            if (!simulateData) {
-                throw new Error("Simulation data is not available.");
-            }
-            writeContract(simulateData.request);
+            setIsProcessing(true);
+            writeContract({
+                address: LOTTERY_CONTRACT_ADDRESS,
+                abi: LOTTERY_ABI,
+                functionName: 'buyTicket',
+                args: [lotteryId],
+                value: BigInt(ticketPrice)
+            });
         } catch (error) {
             console.error('Error buying ticket:', error);
+            showToast({
+                title: "Error",
+                description: "Failed to buy ticket. Please try again.",
+                duration: 5000,
+            });
             setIsProcessing(false);
         }
     };
 
-
-    const isDisabled = isProcessing || isPending;
+    const isDisabled = isProcessing || isConfirming || isPending;
+    const priceInEth = formatEther(BigInt(ticketPrice));
 
     return (
         <button
             onClick={handleBuyTicket}
             disabled={isDisabled}
-            className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 disabled:bg-gray-400"
+            className="w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
         >
-            {isDisabled ? 'Processing...' : 'Buy Ticket'}
+            {isDisabled ? (
+                <span className="flex items-center justify-center">
+                    {isPending ? "Confirm in Wallet..." : "Processing..."}
+                </span>
+            ) : (
+                <span>Buy Ticket for {priceInEth} ETH</span>
+            )}
         </button>
     );
 };
