@@ -21,5 +21,12 @@ export const getLotteryById = async (id: string): Promise<LotteryResponse> => {
 
 export const getUserLotteries = async (address: string): Promise<Lottery[]> => {
     const response = await fetch(`${API_BASE_URL}/lotteries/user/${address}`);
+    if (!response.ok) throw new Error('Failed to fetch user lotteries');
+    return response.json();
+};
+
+export const getOwnerLotteries = async (owner: string): Promise<Lottery[]> => {
+    const response = await fetch(`${API_BASE_URL}/lotteries/owner?owner=${owner}`);
+    if (!response.ok) throw new Error('Failed to fetch owner lotteries');
     return response.json();
 };
