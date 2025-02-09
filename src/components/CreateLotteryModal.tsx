@@ -36,6 +36,7 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
     const [description, setDescription] = useState("");
     const [ticketPrice, setTicketPrice] = useState("");
     const [endDate, setEndDate] = useState("");
+    const [error, setError] = useState<string | null>(null);
 
     const {address, isConnected} = useAccount();
     const {connectors, connect} = useConnect();
@@ -44,7 +45,8 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
         writeContract,
         data: hash,
         error: writeError,
-        isPending
+        isPending,
+        reset: resetWrite
     } = useWriteContract();
     const {isSuccess, isError} = useWaitForTransactionReceipt(
         hash ? {hash} : undefined
@@ -60,25 +62,34 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
             onClose();
             resetForm();
         }
+    }, [isSuccess, showToast, onClose]);
 
-        if (isError) {
-            showToast({
-                title: "Transaction Failed",
-                description: "Failed to create lottery. Please try again.",
-                duration: 5000,
-            });
+    useEffect(() => {
+        if (writeError) {
+            if (writeError.message.includes('User rejected the request')) {
+                setError('Transaction cancelled by user');
+            } else {
+                setError(writeError.message);
+            }
         }
-    }, [isSuccess, isError]);
-
+    }, [writeError]);
 
     const resetForm = () => {
         setDescription("");
         setTicketPrice("");
         setEndDate("");
+        setError(null);
+        resetWrite?.();
+    };
+
+    const handleClose = () => {
+        resetForm();
+        onClose();
     };
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(null);
 
         if (!isConnected) {
             showToast({
@@ -90,16 +101,12 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
         }
 
         if (!description || !ticketPrice || !endDate) {
-            showToast({
-                title: "Invalid Input",
-                description: "Please fill all fields correctly.",
-                duration: 5000,
-            });
+            setError('Please fill all fields correctly');
             return;
         }
 
         try {
-            const result: any = writeContract({
+            writeContract({
                 address: LOTTERY_CONTRACT_ADDRESS,
                 abi: LOTTERY_ABI,
                 functionName: 'createLottery',
@@ -109,31 +116,18 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
                     BigInt(Math.floor(new Date(endDate).getTime() / 1000))
                 ]
             });
-
-            if (result && result.hash) {
-                showToast({
-                    title: "Transaction Submitted",
-                    description: "Waiting for confirmation...",
-                    duration: 5000,
-                });
-            }
-        } catch (error) {
-            showToast({
-                title: "Transaction Failed",
-                description: "Error creating lottery. Please check your inputs.",
-                duration: 5000,
-            });
+        } catch (error: any) {
+            setError(error.message || 'Failed to create lottery');
         }
     };
 
     return (
-        <Dialog open={isOpen} onOpenChange={onClose}>
+        <Dialog open={isOpen} onOpenChange={handleClose}>
             <DialogContent>
                 <DialogHeader>
                     <DialogTitle>Create New Lottery</DialogTitle>
                 </DialogHeader>
 
-                {/* Wallet Connection Section */}
                 {!isConnected && (
                     <div className="mb-4">
                         <h3 className="text-md font-medium">Connect Wallet</h3>
@@ -149,7 +143,12 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
                     </div>
                 )}
 
-                {/* Form Section */}
+                {error && (
+                    <div className="mb-4 p-4 bg-red-100 border border-red-400 text-red-700 rounded">
+                        {error}
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Description</label>
@@ -182,11 +181,6 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
                             min={new Date().toISOString().slice(0, 16)}
                         />
                     </div>
-                    {writeError && (
-                        <div className="text-red-500 text-sm">
-                            {writeError.message}
-                        </div>
-                    )}
                     <Button
                         type="submit"
                         className="w-full"
