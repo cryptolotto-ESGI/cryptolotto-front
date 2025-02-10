@@ -76,6 +76,10 @@ export default function Home() {
         setLoading(false);
     };
 
+    const handleLotteriesReload = () => {
+        fetchLotteries().then();
+    };
+
     useEffect(() => {
         fetchLotteries().then();
     }, [activeFilter, debouncedSearch]);
@@ -144,6 +148,7 @@ export default function Home() {
             <CreateLotteryModal
                 isOpen={isModalOpen}
                 onClose={() => setIsModalOpen(false)}
+                onLotteriesReload={handleLotteriesReload}
             />
         </div>
     );

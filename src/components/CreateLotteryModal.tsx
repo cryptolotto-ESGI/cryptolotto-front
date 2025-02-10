@@ -3,8 +3,8 @@
 import {Dialog, DialogContent, DialogHeader, DialogTitle} from "@/components/ui/dialog";
 import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
-import React, {useEffect, useState} from "react";
-import {useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract} from 'wagmi';
+import React, {useCallback, useEffect, useState} from "react";
+import {useAccount, useConnect, useWriteContract} from 'wagmi';
 import {useToast} from "@/components/ui/toast";
 import {parseGwei} from "viem";
 
@@ -30,13 +30,16 @@ const LOTTERY_ABI: readonly unknown[] =
 interface CreateLotteryModalProps {
     isOpen: boolean;
     onClose: () => void;
+    onLotteriesReload: () => void;
 }
 
-export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
+export function CreateLotteryModal({isOpen, onClose, onLotteriesReload}: CreateLotteryModalProps) {
     const [description, setDescription] = useState("");
     const [ticketPrice, setTicketPrice] = useState("");
     const [endDate, setEndDate] = useState("");
     const [error, setError] = useState<string | null>(null);
+    const [isWaitingConfirmation, setIsWaitingConfirmation] = useState(false);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
     const {address, isConnected} = useAccount();
     const {connectors, connect} = useConnect();
@@ -48,48 +51,83 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
         isPending,
         reset: resetWrite
     } = useWriteContract();
-    const {isSuccess, isError} = useWaitForTransactionReceipt(
-        hash ? {hash} : undefined
-    );
+
+    const resetForm = useCallback(() => {
+        setDescription("");
+        setTicketPrice("");
+        setEndDate("");
+        setError(null);
+        setSuccessMessage(null);
+        setIsWaitingConfirmation(false);
+        resetWrite?.();
+    }, [resetWrite]);
 
     useEffect(() => {
-        if (isSuccess) {
-            showToast({
-                title: "Lottery Created",
-                description: "Your lottery has been created successfully!",
-                duration: 5000,
-            });
-            onClose();
-            resetForm();
+        if (hash) {
+            console.log('Transaction submitted:', hash);
+            setIsWaitingConfirmation(true);
+            const checkTransaction = async () => {
+                try {
+                    const receipt = await fetch(`https://api-testnet.bscscan.com/api?module=transaction&action=gettxreceiptstatus&txhash=${hash}&apikey=XPFPIDN4RUG884F37AKXKMG6QMAZXIRB48`);
+                    const data = await receipt.json();
+                    console.log('BSCScan API response:', data);
+
+                    if (data.status === "1" &&
+                        data.message === "OK" &&
+                        data.result &&
+                        data.result.status === "1") {
+
+                        setSuccessMessage("Your lottery has been created successfully!");
+                        setIsWaitingConfirmation(false);
+                        setError(null);
+
+                        setTimeout(() => {
+                            resetForm();
+                            onClose();
+                            onLotteriesReload();
+                        }, 3000);
+                        return;
+                    }
+
+                    // Si la transaction a échoué
+                    if (data.status === "1" && data.result && data.result.status === "0") {
+                        setError('Transaction failed on the blockchain');
+                        setIsWaitingConfirmation(false);
+                        return;
+                    }
+
+                } catch (error) {
+                    console.error('Error checking transaction:', error);
+                    setError('Error while checking transaction status');
+                }
+            };
+
+            const interval = setInterval(checkTransaction, 1000);
+            return () => clearInterval(interval);
         }
-    }, [isSuccess, showToast, onClose]);
+    }, [hash, showToast, resetForm, onClose]);
 
     useEffect(() => {
         if (writeError) {
+            console.error('Write error:', writeError);
             if (writeError.message.includes('User rejected the request')) {
                 setError('Transaction cancelled by user');
             } else {
                 setError(writeError.message);
             }
+            setIsWaitingConfirmation(false);
         }
     }, [writeError]);
 
-    const resetForm = () => {
-        setDescription("");
-        setTicketPrice("");
-        setEndDate("");
-        setError(null);
-        resetWrite?.();
-    };
-
-    const handleClose = () => {
+    const handleClose = useCallback(() => {
         resetForm();
         onClose();
-    };
+    }, [resetForm, onClose]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setError(null);
+        setSuccessMessage(null);
 
         if (!isConnected) {
             showToast({
@@ -100,8 +138,8 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
             return;
         }
 
-        if (!description || !ticketPrice || !endDate) {
-            setError('Please fill all fields correctly');
+        if (!description || !endDate) {
+            setError('Please fill description and end date');
             return;
         }
 
@@ -112,8 +150,7 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
                 return;
             }
             const minLaunchDate = BigInt(Math.floor(endDateTime.getTime() / 1000));
-
-            const ticketPriceInGwei = parseGwei(ticketPrice);
+            const ticketPriceInGwei = ticketPrice ? parseGwei(ticketPrice) : BigInt(0);
 
             console.log('Submitting transaction with params:', {
                 address: LOTTERY_CONTRACT_ADDRESS,
@@ -133,6 +170,7 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
                 ]
             });
         } catch (error: any) {
+            console.error('Create lottery error:', error);
             setError(error.message || 'Failed to create lottery');
         }
     };
@@ -165,6 +203,12 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
                     </div>
                 )}
 
+                {successMessage && (
+                    <div className="mb-4 p-4 bg-green-100 border border-green-400 text-green-700 rounded">
+                        {successMessage}
+                    </div>
+                )}
+
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Description</label>
@@ -178,13 +222,12 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
                     <div className="space-y-2">
                         <label className="text-sm font-medium">Ticket Price (ETH)</label>
                         <Input
-                            required
                             type="number"
                             step="0.000000000000000001"
                             min="0"
                             value={ticketPrice}
                             onChange={(e) => setTicketPrice(e.target.value)}
-                            placeholder="0.01"
+                            placeholder="0"
                         />
                     </div>
                     <div className="space-y-2">
@@ -200,10 +243,20 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
                     <Button
                         type="submit"
                         className="w-full"
-                        disabled={isPending}
+                        disabled={isPending || isWaitingConfirmation}
                     >
-                        {isPending ? "Creating..." : "Create Lottery"}
+                        {isPending
+                            ? "Awaiting Approval..."
+                            : isWaitingConfirmation
+                                ? "Waiting for Confirmation..."
+                                : "Create Lottery"
+                        }
                     </Button>
+                    {isWaitingConfirmation && (
+                        <div className="text-sm text-center text-gray-500">
+                            Transaction submitted, waiting for confirmation...
+                        </div>
+                    )}
                 </form>
             </DialogContent>
         </Dialog>
