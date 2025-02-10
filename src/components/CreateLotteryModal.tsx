@@ -5,8 +5,8 @@ import {Input} from "@/components/ui/input";
 import {Button} from "@/components/ui/button";
 import React, {useEffect, useState} from "react";
 import {useAccount, useConnect, useWaitForTransactionReceipt, useWriteContract} from 'wagmi';
-import {parseEther} from "viem";
 import {useToast} from "@/components/ui/toast";
+import {parseGwei} from "viem";
 
 const LOTTERY_CONTRACT_ADDRESS = process.env.NEXT_PUBLIC_LOTTERY_CONTRACT_ADDRESS as `0x${string}` || "0x0000000000000000000000000000000000000000";
 
@@ -106,14 +106,30 @@ export function CreateLotteryModal({isOpen, onClose}: CreateLotteryModalProps) {
         }
 
         try {
+            const endDateTime = new Date(endDate);
+            if (endDateTime <= new Date()) {
+                setError('End date must be in the future');
+                return;
+            }
+            const minLaunchDate = BigInt(Math.floor(endDateTime.getTime() / 1000));
+
+            const ticketPriceInGwei = parseGwei(ticketPrice);
+
+            console.log('Submitting transaction with params:', {
+                address: LOTTERY_CONTRACT_ADDRESS,
+                description,
+                ticketPriceInGwei: ticketPriceInGwei.toString(),
+                minLaunchDate: minLaunchDate.toString()
+            });
+
             writeContract({
                 address: LOTTERY_CONTRACT_ADDRESS,
                 abi: LOTTERY_ABI,
                 functionName: 'createLottery',
                 args: [
-                    description,
-                    parseEther(ticketPrice || "0"),
-                    BigInt(Math.floor(new Date(endDate).getTime() / 1000))
+                    minLaunchDate,
+                    ticketPriceInGwei,
+                    description
                 ]
             });
         } catch (error: any) {

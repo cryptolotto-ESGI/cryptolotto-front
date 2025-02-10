@@ -1,5 +1,6 @@
 export interface Lottery {
     id: string;
+    blockchainId: string;
     description: string;
     ticketPrice: bigint;
     owner: string;

@@ -11,7 +11,7 @@ export function LotteryCard({lottery}: LotteryCardProps) {
     const isEnded = new Date(lottery.endDate) <= new Date();
 
     return (
-        <Link href={`/lottery/${lottery.id}`} passHref>
+        <Link href={`/lottery/${lottery.blockchainId}`} passHref>
             <Card className="hover:shadow-lg transition-shadow cursor-pointer">
                 <CardHeader>
                     <h3 className="text-xl font-semibold">{lottery.description}</h3>

@@ -134,7 +134,7 @@ export default function Home() {
                     ) : (
                         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                             {lotteries.map((lottery) => (
-                                <LotteryCard key={lottery.id} lottery={lottery}/>
+                                <LotteryCard key={lottery.blockchainId} lottery={lottery}/>
                             ))}
                         </div>
                     )}
